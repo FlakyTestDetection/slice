@@ -18,6 +18,7 @@ import java.util.OptionalInt;
 import static io.airlift.slice.Preconditions.checkArgument;
 import static io.airlift.slice.Preconditions.checkPositionIndex;
 import static io.airlift.slice.Preconditions.checkPositionIndexes;
+import static io.airlift.slice.Preconditions.verify;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MAX_SURROGATE;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
@@ -139,7 +140,7 @@ public final class SliceUtf8
             continuationBytesCount += countContinuationBytes(utf8.getByteUnchecked(offset));
         }
 
-        assert continuationBytesCount <= length;
+        verify(continuationBytesCount <= length);
         return length - continuationBytesCount;
     }
 
@@ -206,6 +207,7 @@ public final class SliceUtf8
      * Compares to UTF-8 sequences using UTF-16 big endian semantics.  This is
      * equivalent to the {@link java.lang.String#compareTo(Object)}.
      * {@code java.lang.String}.
+     *
      * @throws InvalidUtf8Exception if the UTF-8 are invalid
      */
     public static int compareUtf16BE(Slice utf8Left, Slice utf8Right)
@@ -474,15 +476,15 @@ public final class SliceUtf8
                 codePoint = unsignedByte & 0xFF;
                 codePointLength = 1;
             }
-            else if (minPosition <= position -2 && !isContinuationByte(utf8.getByte(position - 2))) {
+            else if (minPosition <= position - 2 && !isContinuationByte(utf8.getByte(position - 2))) {
                 codePoint = tryGetCodePointAt(utf8, position - 2);
                 codePointLength = 2;
             }
-            else if (minPosition <= position -3 && !isContinuationByte(utf8.getByte(position - 3))) {
+            else if (minPosition <= position - 3 && !isContinuationByte(utf8.getByte(position - 3))) {
                 codePoint = tryGetCodePointAt(utf8, position - 3);
                 codePointLength = 3;
             }
-            else if (minPosition <= position -4 && !isContinuationByte(utf8.getByte(position - 4))) {
+            else if (minPosition <= position - 4 && !isContinuationByte(utf8.getByte(position - 4))) {
                 codePoint = tryGetCodePointAt(utf8, position - 4);
                 codePointLength = 4;
             }
@@ -614,6 +616,7 @@ public final class SliceUtf8
      * is the code point.  A negative return value means the UTF-8 sequence at the
      * position is invalid, and the length of the invalid sequence is the absolute
      * value of the result.
+     *
      * @return the code point or negative the number of bytes in the invalid UTF-8 sequence.
      */
     public static int tryGetCodePointAt(Slice utf8, int position)

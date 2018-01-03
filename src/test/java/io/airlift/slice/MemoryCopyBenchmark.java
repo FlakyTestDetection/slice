@@ -30,6 +30,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.JvmUtils.unsafe;
 
 @SuppressWarnings("restriction")
@@ -194,10 +195,10 @@ public class MemoryCopyBenchmark
 
     static Slice doCopy(Buffers buffers, CopyStrategy strategy, int length)
     {
-        assert buffers.startOffset >= 0 : "startOffset < 0";
-        assert buffers.destOffset >= 0 : "destOffset < 0";
-        assert buffers.startOffset + length < ALLOC_SIZE : "startOffset + length >= ALLOC_SIZE";
-        assert buffers.destOffset + length < ALLOC_SIZE : "destOffset + length >= ALLOC_SIZE";
+        verify(buffers.startOffset >= 0, "startOffset < 0");
+        verify(buffers.destOffset >= 0, "destOffset < 0");
+        verify(buffers.startOffset + length < ALLOC_SIZE, "startOffset + length >= ALLOC_SIZE");
+        verify(buffers.destOffset + length < ALLOC_SIZE, "destOffset + length >= ALLOC_SIZE");
 
         strategy.doCopy(buffers.data, buffers.startOffset, buffers.destOffset, length);
         return buffers.data;
@@ -205,53 +206,50 @@ public class MemoryCopyBenchmark
 
     private enum CopyStrategy
     {
-        SLICE
-                {
-                    @Override
-                    public void doCopy(Slice data, long src, long dest, int length)
-                    {
-                        data.setBytes((int) dest, data, (int) src, length);
-                    }
-                },
+        SLICE {
+            @Override
+            public void doCopy(Slice data, long src, long dest, int length)
+            {
+                data.setBytes((int) dest, data, (int) src, length);
+            }
+        },
 
-        CUSTOM_LOOP
-                {
-                    @Override
-                    public void doCopy(Slice data, long src, long dest, int length)
-                    {
-                        Object base = data.getBase();
-                        long offset = data.getAddress();
-                        while (length >= SizeOf.SIZE_OF_LONG) {
-                            long srcLong = unsafe.getLong(base, src + offset);
-                            unsafe.putLong(base, dest + offset, srcLong);
+        CUSTOM_LOOP {
+            @Override
+            public void doCopy(Slice data, long src, long dest, int length)
+            {
+                Object base = data.getBase();
+                long offset = data.getAddress();
+                while (length >= SizeOf.SIZE_OF_LONG) {
+                    long srcLong = unsafe.getLong(base, src + offset);
+                    unsafe.putLong(base, dest + offset, srcLong);
 
-                            offset += SizeOf.SIZE_OF_LONG;
-                            length -= SizeOf.SIZE_OF_LONG;
-                        }
+                    offset += SizeOf.SIZE_OF_LONG;
+                    length -= SizeOf.SIZE_OF_LONG;
+                }
 
-                        while (length > 0) {
-                            byte srcByte = unsafe.getByte(base, src + offset);
-                            unsafe.putByte(base, dest + offset, srcByte);
+                while (length > 0) {
+                    byte srcByte = unsafe.getByte(base, src + offset);
+                    unsafe.putByte(base, dest + offset, srcByte);
 
-                            offset++;
-                            length--;
-                        }
-                    }
-                },
+                    offset++;
+                    length--;
+                }
+            }
+        },
 
-        UNSAFE
-                {
-                    @Override
-                    public void doCopy(Slice data, long srcOffset, long destOffset, int length)
-                    {
-                        Object base = data.getBase();
-                        srcOffset += data.getAddress();
-                        destOffset += data.getAddress();
-                        int bytesToCopy = length - (length % 8);
-                        unsafe.copyMemory(base, srcOffset, base, destOffset, bytesToCopy);
-                        unsafe.copyMemory(base, srcOffset + bytesToCopy, base, destOffset + bytesToCopy, length - bytesToCopy);
-                    }
-                };
+        UNSAFE {
+            @Override
+            public void doCopy(Slice data, long srcOffset, long destOffset, int length)
+            {
+                Object base = data.getBase();
+                srcOffset += data.getAddress();
+                destOffset += data.getAddress();
+                int bytesToCopy = length - (length % 8);
+                unsafe.copyMemory(base, srcOffset, base, destOffset, bytesToCopy);
+                unsafe.copyMemory(base, srcOffset + bytesToCopy, base, destOffset + bytesToCopy, length - bytesToCopy);
+            }
+        };
 
         public abstract void doCopy(Slice data, long src, long dest, int length);
     }
